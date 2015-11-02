@@ -24,7 +24,6 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-from datetime import datetime
 import ephem as ep
 
 """
@@ -35,8 +34,10 @@ RAASHI_SIZE_DEG = ep.degrees(f"{RAASHI_SIZE}:00:00")
 TITHI_SIZE = 12
 TITHI_SIZE_DEG = ep.degrees(f"{TITHI_SIZE}:00:00")
 
-RAASHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + RAASHI_SIZE))) for x in range(0, 331, RAASHI_SIZE)]
-TITHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + TITHI_SIZE))) for x in range(-6, 349, TITHI_SIZE)]
+RAASHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + RAASHI_SIZE)))
+                      for x in range(0, 331, RAASHI_SIZE)]
+TITHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + TITHI_SIZE)))
+                     for x in range(-6, 349, TITHI_SIZE)]
 """
     Main calculations routines
 """
@@ -66,7 +67,8 @@ def get_raashi_info_from_right_asc(right_asc):
     result = raashi_info[convert_right_asc_to_raashi_index(right_asc)]
     elapsed = ((right_asc - ep.degrees(result[3])) / RAASHI_SIZE_DEG) * 100
     remains = 100 - elapsed
-    return result[0], result[1], result[2], result[3], result[4], elapsed, remains
+    return (result[0], result[1], result[2], result[3], result[4],
+            elapsed, remains)
 
 
 def get_tithi_info_from_right_asc(moon_ra, sun_ra):
@@ -136,7 +138,8 @@ def get_tithi_info_from_right_asc(moon_ra, sun_ra):
 
     moon_sun_angle = get_moon_sun_ra_difference(moon_ra, sun_ra)
     q = calculate_tithi(moon_sun_angle, method_to_use=2)
-    elapsed = (ep.degrees(ep.degrees(moon_sun_angle) - q[2]) / TITHI_SIZE_DEG * 100)
+    elapsed = (ep.degrees(ep.degrees(moon_sun_angle) - q[2]) /
+               TITHI_SIZE_DEG * 100)
     return q[0], q[1], q[2], moon_sun_angle, q[3], elapsed, 100 - elapsed
 
 
@@ -153,12 +156,18 @@ def calculate_tithi_for_a_given_date_time(array_of_given_datetime_in_utc):
         m = ep.Moon(place)
         w = get_tithi_info_from_right_asc(m.ra, s.ra)
         data_row = (each_date, w[1], w[2], w[3], w[4], w[5], w[6])
-        result.append( data_row )
+        result.append(data_row)
 
     return result
 
 
 def main():
+    print("""
+Welcome to the program that calculates tithi progression for every five minutes
+for the entire date. (starting from 00:00:00 hours to 23:55:00 hours). That
+result of that calculation gets saved to a csv file.
+The date is expected in ISO format i.e. YYYY-MM-DD :
+          """)
     user_entry = input("Enter Date : ")
     dts = []
     for i in range(0, 24):
@@ -168,7 +177,7 @@ def main():
     ans = calculate_tithi_for_a_given_date_time(dts)
     flnm = f"output/output{user_entry}.csv"
     with open(flnm, "w") as out_file:
-        txt = f"Given dateTime(UTC), Tithi Name, current, Elapsed, Remains\n"
+        txt = "Given dateTime(UTC), Tithi Name, current, Elapsed, Remains\n"
         out_file.write(txt)
         for ele in ans:
             txt = f"{ele[0]}, {ele[1]}, {ele[3]}, {ele[5]}\n"
