@@ -46,7 +46,8 @@ TITHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + TITHI_SIZE)))
 """
 
 
-def dates_generator(start_date, end_date=None, delta=td(minutes=1)):
+def dates_generator(start_date, end_date=None, delta=None):
+    print("delta=", delta)
     if end_date is None:
         end_date = start_date + td(days=1)
         end_date = end_date.replace(hour=0, minute=0,
@@ -178,8 +179,11 @@ def get_tithi_info_from_right_asc(moon_ra, sun_ra):
     return q[0], q[1], q[2], q[3], moon_sun_angle
 
 
-def tithi_generator(observer_info, start_date):
-    dg = dates_generator(start_date, start_date + td(days=1))
+def tithi_generator(observer_info, start_date, end_date=None, intv=None):
+    if intv is None:
+        print("Intv received None")
+        intv = td(seconds=60)
+    dg = dates_generator(start_date, start_date + td(days=1), intv)
     m = ep.Moon(observer_info)
     s = ep.Sun(observer_info)
     for each_date in dg:
@@ -214,8 +218,24 @@ def get_details_of_selected_place(selected_place):
     return [ a, b, c, d]
 
 
-def another_main( place_name, ):
-    pass
+def another_main(place_name, start_dttm, end_dttm, interval, out_file_name):
+    observer = ep.Observer()
+    observer.name, observer.lon, observer.lat, observer.elevation = \
+            get_details_of_selected_place(place_name)
+    ans = tithi_generator(observer,
+                          local_datetime_to_utc(str_to_date(start_dttm)), None,
+                          interval
+                          )
+    with open(out_file_name, "w") as o_f:
+        txt = "Date & Time (UTC), Moon RA (A), Moon Alt, Moon Az, Sun RA (B), Sun Alt, Sun Az, Difference (A-B)\n"
+        o_f.write(txt)
+        for ele in ans:
+            try:
+                txt = f"{ele[0]}, {ele[1]}, {ele[2]}, {ele[3]}, {ele[4]}, {ele[5]}, {ele[6]}, {ele[7]} \n"
+            except:
+                txt = ""
+            o_f.write(txt)
+    return
 
 
 def main():
