@@ -26,6 +26,7 @@
 """
 
 from datetime import datetime as dttm
+from datetime import timedelta as td
 import ephem as ep
 import configparser as cp
 import pathlib as pl
@@ -43,6 +44,43 @@ TITHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + TITHI_SIZE)))
 """
     Main calculations routines
 """
+
+
+def dates_generator(start_date, end_date=None, delta=td(minutes=1)):
+    if end_date is None:
+        end_date = start_date + td(days=1)
+        end_date = end_date.replace(hour=0, minute=0,
+                                    second=0, microsecond=0)
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    value = start_date
+
+    while value < end_date:
+        yield value
+        value += delta
+
+    return
+
+
+def str_to_date(dt_as_str):
+    try:
+        result = dttm.strptime(dt_as_str, "%Y-%m-%d")
+    except ValueError as e:
+        result = dttm.today().replace(hour=0, minute=0, second=0, microsecond=0)
+    return result
+
+
+def local_datetime_to_utc(local_date_time):
+    def offset():
+        d1 = dttm.now().replace(second=0, microsecond=0)
+        d2 = dttm.utcnow().replace(second=0, microsecond=0)
+        r = d1 - d2
+        return r
+
+    result = local_date_time - offset()
+    return result
 
 
 def load_config(file_name):
@@ -137,20 +175,25 @@ def get_tithi_info_from_right_asc(moon_ra, sun_ra):
     q = calculate_tithi(moon_sun_angle, method_to_use=2)
     elapsed = (ep.degrees(ep.degrees(moon_sun_angle) - q[2]) /
                TITHI_SIZE_DEG * 100)
-    return q[0], q[1], q[2], moon_sun_angle, q[3], elapsed, 100 - elapsed
+    return q[0], q[1], q[2], q[3], moon_sun_angle
 
 
-def calculate_tithi_for_a_given_date_time(observer_info, array_of_given_datetime_in_utc):
-    result = []
-    for each_date in array_of_given_datetime_in_utc:
+def tithi_generator(observer_info, start_date):
+    dg = dates_generator(start_date, start_date + td(days=1))
+    m = ep.Moon(observer_info)
+    s = ep.Sun(observer_info)
+    for each_date in dg:
         observer_info.date = each_date
-        s = ep.Sun(observer_info)
-        m = ep.Moon(observer_info)
+        m.compute(observer_info)
+        s.compute(observer_info)
         w = get_tithi_info_from_right_asc(m.ra, s.ra)
-        data_row = (each_date, w[1], w[2], w[3], w[4], w[5], w[6])
-        result.append(data_row)
-
-    return result
+        data_row = (each_date, str(ep.degrees(m.ra)), str(ep.degrees(m.alt)),
+                    str(ep.degrees(m.az)),
+                    str(ep.degrees(s.ra)), str(ep.degrees(s.alt)),
+                    str(ep.degrees(s.az)),
+                    str(ep.degrees(w[4])))
+        yield data_row
+    return
 
 
 def main():
@@ -161,7 +204,6 @@ def main():
     start_chr = ""
     i = 0
     for i, place in enumerate(obs.sections(), start=1):
-
         ending_char = "\n" if i % 3 == 0 else ""
         print(start_chr, f"{chr(64 + i)}).", f"{place:12.12s}", end=ending_char)
         start_chr = "\t|\t" if i % 3 != 0 else ""
@@ -196,21 +238,17 @@ The date is expected in ISO format i.e. YYYY-MM-DD :
     if user_entry == "":
         user_entry = "{:%Y-%m-%d}".format(dttm.today())
 
-    dts = []
-    for i in range(0, 24):
-        for j in range(0, 56, 5):
-            dts.append(f"{user_entry} {i:>02}:{j:>02}:00")
-
-    print("Started Calculation ...")
-    ans = calculate_tithi_for_a_given_date_time(observer, dts)
-    print("Finished Calculation ..., now will write this data to file")
-    filename = vauutils.RunInfo.get_script_filepath(__file__) / f"output/output{place.lower()}{user_entry}.csv"
+    ans = tithi_generator(observer, local_datetime_to_utc(str_to_date(user_entry)))
+    filename = vauutils.RunInfo.get_script_filepath(__file__) / f"output/{place.lower()}_{user_entry}.csv"
     print("Started writing CSV file ...")
     with open(filename, "w") as out_file:
-        txt = "Given dateTime(UTC), Tithi Name, current, Elapsed, Remains\n"
+        txt = "Date & Time (UTC), Moon RA (A), Moon Dec, Moon Az, Sun RA (B), Sun Dec, Sun Az, Difference (A-B)\n"
         out_file.write(txt)
         for ele in ans:
-            txt = f"{ele[0]}, {ele[1]}, {ele[3]}, {ele[5]}\n"
+            try:
+                txt = f"{ele[0]}, {ele[1]}, {ele[2]}, {ele[3]}, {ele[4]}, {ele[5]}, {ele[6]}, {ele[7]} \n"
+            except :
+                txt = ""
             out_file.write(txt)
     print("Finished writing CSV file ...")
     print(f"File \"{filename}\" is ready now.")
