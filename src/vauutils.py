@@ -33,11 +33,11 @@ class RunInfo:
 
     @classmethod
     def get_user_home(cls):
-        return str(Path.home())
+        return Path.home()
 
     @classmethod
     def get_cwd(cls):
-        return str(Path.cwd())
+        return Path.cwd()
 
     @classmethod
     def is_running_from_home_folder(cls):

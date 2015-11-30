@@ -45,6 +45,27 @@ TITHI_ANGLES_LIST = [(ep.degrees(str(x)), ep.degrees(str(x + TITHI_SIZE)))
 """
 
 
+def load_config(file_name):
+    result = None
+    cfg_path = vauutils.RunInfo.get_script_filepath(__file__)
+    cfg_name = cfg_path / "config" / file_name
+    if cfg_name.is_file():
+        result = cp.ConfigParser()
+        result.read(cfg_name)
+    else:
+        print(f"Required file \"{file_name}\" not found.")
+        exit()
+    return result
+
+
+def load_config_dot_cfg():
+    return load_config("config.cfg")
+
+
+def load_obs_dot_cfg(obs_file_name):
+    return load_config(obs_file_name)
+
+
 def get_tithi_info_from_right_asc(moon_ra, sun_ra):
     local_copy = TITHI_ANGLES_LIST
     tithi_info = (
@@ -133,6 +154,34 @@ def calculate_tithi_for_a_given_date_time(observer_info, array_of_given_datetime
 
 
 def main():
+    cfg = load_config_dot_cfg()
+    obs_file_name = cfg.get("OBS", "file_name")
+    obs = load_obs_dot_cfg(obs_file_name)
+
+    start_chr = ""
+    i = 0
+    for i, place in enumerate(obs.sections(), start=1):
+
+        ending_char = "\n" if i % 3 == 0 else ""
+        print(start_chr, f"{chr(64 + i)}).", f"{place:12.12s}", end=ending_char)
+        start_chr = "\t|\t" if i % 3 != 0 else ""
+
+    print("""
+Now enter your choice. If you just press enter, place name "A" will be selected. 
+    """)
+    place = str(input(": ")).upper()
+    if place.strip() == "":
+        place = obs.sections()[0]
+
+    if place not in obs.sections():
+        print("That was not an option!, Bye!")
+        exit()
+
+    observer = ep.Observer()
+    observer.name = obs.get(place, "place_name")
+    observer.lon = obs.get(place, "place_longitude")
+    observer.lat = obs.get(place, "place_latitude")
+    observer.elevation = obs.getint(place, "place_elevation")
 
     print("""
 Welcome to the program that calculates tithi progression for every five minutes
@@ -147,19 +196,6 @@ The date is expected in ISO format i.e. YYYY-MM-DD :
     if user_entry == "":
         user_entry = "{:%Y-%m-%d}".format(dttm.today())
 
-    program_path = vauutils.RunInfo().get_script_filepath(__file__)
-    config_path = program_path / pl.Path("config/config.cfg")
-    config_file = cp.ConfigParser()
-    config_file.read(config_path)
-
-    place = config_file.get("DEFAULT", "place_name")
-
-    observer = ep.Observer()
-    observer.name = config_file.get(place,"place_name")
-    observer.lon = config_file.get(place,"place_longitude")
-    observer.lat = config_file.get(place, "place_latitude")
-    observer.elevation = config_file.getint(place, "place_elevation")
-
     dts = []
     for i in range(0, 24):
         for j in range(0, 56, 5):
@@ -168,7 +204,7 @@ The date is expected in ISO format i.e. YYYY-MM-DD :
     print("Started Calculation ...")
     ans = calculate_tithi_for_a_given_date_time(observer, dts)
     print("Finished Calculation ..., now will write this data to file")
-    filename = f"output/output{user_entry}.csv"
+    filename = vauutils.RunInfo.get_script_filepath(__file__) / f"output/output{place.lower()}{user_entry}.csv"
     print("Started writing CSV file ...")
     with open(filename, "w") as out_file:
         txt = "Given dateTime(UTC), Tithi Name, current, Elapsed, Remains\n"
@@ -178,7 +214,7 @@ The date is expected in ISO format i.e. YYYY-MM-DD :
             out_file.write(txt)
     print("Finished writing CSV file ...")
     print(f"File \"{filename}\" is ready now.")
-    return
+    return None
 
 
 if __name__ == '__main__':
