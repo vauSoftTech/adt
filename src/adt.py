@@ -196,6 +196,28 @@ def tithi_generator(observer_info, start_date):
     return
 
 
+def get_list_of_places():
+    cfg = load_config_dot_cfg()
+    obs_file_name = cfg.get("OBS", "file_name")
+    obs = load_obs_dot_cfg(obs_file_name)
+    return obs.sections()
+
+
+def get_details_of_selected_place(selected_place):
+    cfg = load_config_dot_cfg()
+    obs_file_name = cfg.get("OBS", "file_name")
+    obs = load_obs_dot_cfg(obs_file_name)
+    a = obs.get(selected_place, "place_name")
+    b = obs.get(selected_place, "place_longitude")
+    c = obs.get(selected_place, "place_latitude")
+    d = obs.getint(selected_place, "place_elevation")
+    return [ a, b, c, d]
+
+
+def another_main( place_name, ):
+    pass
+
+
 def main():
     cfg = load_config_dot_cfg()
     obs_file_name = cfg.get("OBS", "file_name")
